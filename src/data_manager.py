@@ -22,4 +22,33 @@ class Cifar10DataManager:
             tf.keras.layers.RandomZoom(0.1),
         ])
 
-    
+    def _prepare_dataset(self, images, labels, shuffle=False):
+        dataset = tf.data.Dataset.from_tensor_slices((images, labels))
+        
+       
+        dataset = dataset.map(
+            lambda img, lbl: (tf.cast(img, tf.float32) / 255.0, tf.one_hot(tf.squeeze(lbl), config.NUM_CLASSES)),
+            num_parallel_calls=tf.data.AUTOTUNE
+        )
+        
+        if shuffle:
+            dataset = dataset.shuffle(buffer_size=len(images))
+        
+        dataset = dataset.batch(config.BATCH_SIZE)
+        
+       
+        if shuffle:
+            dataset = dataset.map(
+                lambda x, y: (self.data_augmentation(x, training=True), y),
+                num_parallel_calls=tf.data.AUTOTUNE
+            )
+            
+        return dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
+
+    def get_train_dataset(self):
+        """Возвращает тренировочный датасет"""  
+        return self._prepare_dataset(self.train_images, self.train_labels, shuffle=True)
+
+    def get_test_dataset(self):
+        """Возвразает тестовый датасет"""
+        return self._prepare_dataset(self.test_images, self.test_labels)
